@@ -1,4 +1,4 @@
--- [[ CƯỜNG MÚP - FIX MENU HIỂN THỊ ]]
+-- [[ CƯỜNG MÚP - MENU VỚI SLIDER FOV THẬT SỰ ]]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -38,9 +38,7 @@ MenuIcon.BorderSizePixel = 0
 MenuIcon.Parent = ScreenGui
 MenuIcon.ZIndex = 2000
 
-local IconCorner = Instance.new("UICorner")
-IconCorner.CornerRadius = UDim.new(0, 27)
-IconCorner.Parent = MenuIcon
+Instance.new("UICorner", MenuIcon).CornerRadius = UDim.new(0, 27)
 
 local IconStroke = Instance.new("UIStroke")
 IconStroke.Color = Color3.new(255, 255, 0)
@@ -50,17 +48,15 @@ IconStroke.Parent = MenuIcon
 -- ============ MENU CHÍNH ============
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 280, 0, 480)
-MainFrame.Position = UDim2.new(0.5, -140, 0.5, -240)
+MainFrame.Size = UDim2.new(0, 280, 0, 520)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -260)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 MainFrame.BorderSizePixel = 0
 MainFrame.Visible = false
 MainFrame.Parent = ScreenGui
 MainFrame.ZIndex = 1000
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = MainFrame
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
 local MainStroke = Instance.new("UIStroke")
 MainStroke.Color = Color3.fromRGB(255, 150, 0)
@@ -70,14 +66,11 @@ MainStroke.Parent = MainFrame
 -- Title Bar
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 45)
-TitleBar.Position = UDim2.new(0, 0, 0, 0)
 TitleBar.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
 TitleBar.BorderSizePixel = 0
 TitleBar.Parent = MainFrame
 
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 12)
-TitleCorner.Parent = TitleBar
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 12)
 
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -20, 1, 0)
@@ -90,14 +83,13 @@ TitleLabel.TextSize = 18
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
 TitleLabel.Parent = TitleBar
 
--- ============ TOGGLE MENU (FIX: Tách riêng click và drag) ============
+-- ============ TOGGLE MENU ============
 local menuOpen = false
 local isDragging = false
 local dragStartPos = nil
 local dragStartInput = nil
-local dragThreshold = 5 -- Pixel threshold để phân biệt click và drag
+local dragThreshold = 5
 
--- Click để mở/đóng menu
 MenuIcon.MouseButton1Click:Connect(function()
     if not isDragging then
         menuOpen = not menuOpen
@@ -111,10 +103,9 @@ MenuIcon.MouseButton1Click:Connect(function()
             MenuIcon.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
         end
     end
-    isDragging = false -- Reset
+    isDragging = false
 end)
 
--- Drag icon
 MenuIcon.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         isDragging = false
@@ -154,9 +145,7 @@ local function createToggle(name, y, default, callback)
     ToggleButton.Parent = MainFrame
     ToggleButton.ZIndex = 1001
     
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 5)
-    Corner.Parent = ToggleButton
+    Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 5)
     
     local state = default
     
@@ -173,41 +162,6 @@ local function createToggle(name, y, default, callback)
         return state
     end
 end
-
--- ============ FOV SLIDER ============
-local FOVLabel = Instance.new("TextLabel")
-FOVLabel.Size = UDim2.new(1, -20, 0, 20)
-FOVLabel.Position = UDim2.new(0, 10, 0, 370)
-FOVLabel.BackgroundTransparency = 1
-FOVLabel.Text = "🎯 FOV Size: " .. SETTINGS.FOV_Size
-FOVLabel.TextColor3 = Color3.new(1, 1, 1)
-FOVLabel.Font = Enum.Font.GothamBold
-FOVLabel.TextSize = 12
-FOVLabel.Parent = MainFrame
-
-local FOVSlider = Instance.new("TextBox")
-FOVSlider.Size = UDim2.new(1, -20, 0, 30)
-FOVSlider.Position = UDim2.new(0, 10, 0, 390)
-FOVSlider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-FOVSlider.Text = tostring(SETTINGS.FOV_Size)
-FOVSlider.TextColor3 = Color3.new(1, 1, 1)
-FOVSlider.Font = Enum.Font.Gotham
-FOVSlider.TextSize = 12
-FOVSlider.BorderSizePixel = 0
-FOVSlider.Parent = MainFrame
-
-local FOVCorner = Instance.new("UICorner")
-FOVCorner.CornerRadius = UDim.new(0, 5)
-FOVCorner.Parent = FOVSlider
-
-FOVSlider.FocusLost:Connect(function()
-    local value = tonumber(FOVSlider.Text)
-    if value then
-        SETTINGS.FOV_Size = math.clamp(value, 50, 1000)
-        FOVLabel.Text = "🎯 FOV Size: " .. SETTINGS.FOV_Size
-        fovCircle.Radius = SETTINGS.FOV_Size
-    end
-end)
 
 -- ============ TẠO TOGGLES ============
 local espToggle = createToggle("👁 ESP", 55, SETTINGS.ESP, function(state)
@@ -237,6 +191,96 @@ end)
 local invisToggle = createToggle("👻 Invisible", 295, SETTINGS.Invisible, function(state)
     SETTINGS.Invisible = state
     applyInvisible(state)
+end)
+
+-- ============ FOV SLIDER (THANH KÉO THẬT SỰ) ============
+local FOVLabel = Instance.new("TextLabel")
+FOVLabel.Size = UDim2.new(1, -20, 0, 25)
+FOVLabel.Position = UDim2.new(0, 10, 0, 340)
+FOVLabel.BackgroundTransparency = 1
+FOVLabel.Text = "🎯 FOV Size: " .. SETTINGS.FOV_Size
+FOVLabel.TextColor3 = Color3.new(1, 1, 1)
+FOVLabel.Font = Enum.Font.GothamBold
+FOVLabel.TextSize = 13
+FOVLabel.Parent = MainFrame
+
+-- Slider Background
+local SliderBg = Instance.new("Frame")
+SliderBg.Size = UDim2.new(1, -20, 0, 20)
+SliderBg.Position = UDim2.new(0, 10, 0, 370)
+SliderBg.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+SliderBg.BorderSizePixel = 0
+SliderBg.Parent = MainFrame
+
+Instance.new("UICorner", SliderBg).CornerRadius = UDim.new(0, 10)
+
+-- Slider Fill
+local SliderFill = Instance.new("Frame")
+SliderFill.Size = UDim2.new(SETTINGS.FOV_Size / 1000, 0, 1, 0)
+SliderFill.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+SliderFill.BorderSizePixel = 0
+SliderFill.Parent = SliderBg
+
+Instance.new("UICorner", SliderFill).CornerRadius = UDim.new(0, 10)
+
+-- Slider Button
+local SliderButton = Instance.new("TextButton")
+SliderButton.Size = UDim2.new(0, 25, 0, 25)
+SliderButton.Position = UDim2.new(SETTINGS.FOV_Size / 1000, -12, 0, -3)
+SliderButton.BackgroundColor3 = Color3.new(255, 200, 0)
+SliderButton.Text = ""
+SliderButton.BorderSizePixel = 0
+SliderButton.Parent = SliderBg
+SliderButton.ZIndex = 1002
+
+Instance.new("UICorner", SliderButton).CornerRadius = UDim.new(0, 12)
+
+local SliderStroke = Instance.new("UIStroke")
+SliderStroke.Color = Color3.new(255, 255, 255)
+SliderStroke.Thickness = 2
+SliderStroke.Parent = SliderButton
+
+-- Slider Logic
+local sliderDragging = false
+
+local function updateFOVFromSlider(inputPosition)
+    local sliderX = SliderBg.AbsolutePosition.X
+    local sliderWidth = SliderBg.AbsoluteSize.X
+    
+    local relativeX = math.clamp(inputPosition.X - sliderX, 0, sliderWidth)
+    local percent = relativeX / sliderWidth
+    
+    SETTINGS.FOV_Size = math.floor(50 + percent * 950) -- 50 đến 1000
+    FOVLabel.Text = "🎯 FOV Size: " .. SETTINGS.FOV_Size
+    fovCircle.Radius = SETTINGS.FOV_Size
+    
+    SliderFill.Size = UDim2.new(percent, 0, 1, 0)
+    SliderButton.Position = UDim2.new(percent, -12, 0, -3)
+end
+
+SliderButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = true
+    end
+end)
+
+SliderBg.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = true
+        updateFOVFromSlider(input.Position)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if sliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateFOVFromSlider(input.Position)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        sliderDragging = false
+    end
 end)
 
 -- ============ FOV CIRCLE ============
@@ -515,4 +559,5 @@ RunService.RenderStepped:Connect(function()
 end)
 
 print("👑 CƯỜNG MÚP MENU - ĐÃ LOAD!")
-print("📌 Bấm icon 👑 góc trái để mở/đóng menu!")
+print("📌 Bấm icon 👑 để mở menu!")
+print("🎯 Kéo thanh slider để chỉnh FOV (50-1000)!")
