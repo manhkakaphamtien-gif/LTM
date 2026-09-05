@@ -1,13 +1,10 @@
--- [[ CƯỜNG MÚP - ULTIMATE MENU SCRIPT ]]
--- Icon + Menu + ESP + Aim + Magic Bullet + Tele Kill + Under Kill + No Reload + Invisible
-
+-- [[ CƯỜNG MÚP - FIX MENU HIỂN THỊ ]]
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
 
 -- ============ SETTINGS ============
 local SETTINGS = {
@@ -27,7 +24,7 @@ ScreenGui.Name = "CUONG_MUP_MENU"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game:GetService("CoreGui")
 
--- ============ ICON BẬT/TẮT ============
+-- ============ ICON ============
 local MenuIcon = Instance.new("TextButton")
 MenuIcon.Name = "MenuIcon"
 MenuIcon.Size = UDim2.new(0, 55, 0, 55)
@@ -49,32 +46,6 @@ local IconStroke = Instance.new("UIStroke")
 IconStroke.Color = Color3.new(255, 255, 0)
 IconStroke.Thickness = 2
 IconStroke.Parent = MenuIcon
-
--- Kéo thả icon
-local iconDragging = false
-local iconStartPos = nil
-local iconDragStart = nil
-
-MenuIcon.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        iconDragging = true
-        iconStartPos = MenuIcon.Position
-        iconDragStart = input.Position
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if iconDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - iconDragStart
-        MenuIcon.Position = UDim2.new(iconStartPos.X.Scale, iconStartPos.X.Offset + delta.X, iconStartPos.Y.Scale, iconStartPos.Y.Offset + delta.Y)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        iconDragging = false
-    end
-end)
 
 -- ============ MENU CHÍNH ============
 local MainFrame = Instance.new("Frame")
@@ -119,39 +90,19 @@ TitleLabel.TextSize = 18
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Center
 TitleLabel.Parent = TitleBar
 
--- ============ KÉO THẢ MENU ============
-local menuDragging = false
-local menuStartPos = nil
-local menuDragStart = nil
-
-TitleBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        menuDragging = true
-        menuStartPos = MainFrame.Position
-        menuDragStart = input.Position
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if menuDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - menuDragStart
-        MainFrame.Position = UDim2.new(menuStartPos.X.Scale, menuStartPos.X.Offset + delta.X, menuStartPos.Y.Scale, menuStartPos.Y.Offset + delta.Y)
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        menuDragging = false
-    end
-end)
-
--- ============ TOGGLE MENU ============
+-- ============ TOGGLE MENU (FIX: Tách riêng click và drag) ============
 local menuOpen = false
+local isDragging = false
+local dragStartPos = nil
+local dragStartInput = nil
+local dragThreshold = 5 -- Pixel threshold để phân biệt click và drag
 
+-- Click để mở/đóng menu
 MenuIcon.MouseButton1Click:Connect(function()
-    if not iconDragging then
+    if not isDragging then
         menuOpen = not menuOpen
         MainFrame.Visible = menuOpen
+        
         if menuOpen then
             MenuIcon.Text = "✕"
             MenuIcon.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
@@ -159,6 +110,32 @@ MenuIcon.MouseButton1Click:Connect(function()
             MenuIcon.Text = "👑"
             MenuIcon.BackgroundColor3 = Color3.fromRGB(255, 100, 0)
         end
+    end
+    isDragging = false -- Reset
+end)
+
+-- Drag icon
+MenuIcon.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = false
+        dragStartPos = MenuIcon.Position
+        dragStartInput = input.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragStartInput and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStartInput
+        if delta.Magnitude > dragThreshold then
+            isDragging = true
+            MenuIcon.Position = UDim2.new(dragStartPos.X.Scale, dragStartPos.X.Offset + delta.X, dragStartPos.Y.Scale, dragStartPos.Y.Offset + delta.Y)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragStartInput = nil
     end
 end)
 
@@ -362,7 +339,7 @@ local function getClosestPlayer()
     return closest
 end
 
--- ============ MAGIC BULLET ============
+-- ============ SYSTEMS ============
 local function magicBulletSystem()
     local target = getClosestPlayer()
     if not target or not target.Character or not target.Character:FindFirstChild("Head") then return end
@@ -384,20 +361,16 @@ local function magicBulletSystem()
     end
 end
 
--- ============ TELE KILL ============
 local function teleKillSystem()
     local target = getClosestPlayer()
     if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
     
-    local targetRoot = target.Character.HumanoidRootPart
     local targetHumanoid = target.Character:FindFirstChildOfClass("Humanoid")
-    
     if targetHumanoid then
         targetHumanoid:TakeDamage(999999)
     end
 end
 
--- ============ UNDER KILL ============
 local function underKillSystem()
     local target = getClosestPlayer()
     if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -406,7 +379,6 @@ local function underKillSystem()
     targetRoot.CFrame = targetRoot.CFrame - Vector3.new(0, 100, 0)
 end
 
--- ============ NO RELOAD ============
 local function noReloadSystem()
     if not LocalPlayer.Character then return end
     
@@ -420,7 +392,6 @@ local function noReloadSystem()
     end
 end
 
--- ============ INVISIBLE ============
 local function applyInvisible(enabled)
     if not LocalPlayer.Character then return end
     
@@ -535,31 +506,13 @@ RunService.RenderStepped:Connect(function()
         end
     end
     
-    -- Magic Bullet
-    if SETTINGS.MagicBullet then
-        magicBulletSystem()
-    end
-    
-    -- Tele Kill
-    if SETTINGS.TeleKill then
-        teleKillSystem()
-    end
-    
-    -- Under Kill
-    if SETTINGS.UnderKill then
-        underKillSystem()
-    end
-    
-    -- No Reload
-    if SETTINGS.NoReload then
-        noReloadSystem()
-    end
-    
-    -- Invisible
-    if SETTINGS.Invisible and LocalPlayer.Character then
-        applyInvisible(true)
-    end
+    -- Systems
+    if SETTINGS.MagicBullet then magicBulletSystem() end
+    if SETTINGS.TeleKill then teleKillSystem() end
+    if SETTINGS.UnderKill then underKillSystem() end
+    if SETTINGS.NoReload then noReloadSystem() end
+    if SETTINGS.Invisible and LocalPlayer.Character then applyInvisible(true) end
 end)
 
 print("👑 CƯỜNG MÚP MENU - ĐÃ LOAD!")
-print("📌 Bấm icon 👑 góc trái để mở menu!")
+print("📌 Bấm icon 👑 góc trái để mở/đóng menu!")
