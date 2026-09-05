@@ -1,62 +1,137 @@
--- [[ DEVILS WILL RISE - ESP + AIM + MAGIC BULLET + TELEPORT + INVISIBLE ]]
+-- [[ DEVILS WILL RISE - FULL SCRIPT SIÊU DÀI - ESP + AIM + MAGIC BULLET + TELEPORT + INVISIBLE ]]
+-- Version: 2.0 Ultimate
+-- Owner: @dongkaa
+-- Channel: @dongkaa
+
+-- ============ SERVICES ============
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local HttpService = game:GetService("HttpService")
 
 -- ============ SETTINGS ============
-local ESP_ON = true
-local AIM_ON = false
-local MAGIC_ON = false
-local TELE_ON = false
-local INVIS_ON = false
+local SETTINGS = {
+    ESP = {
+        Enabled = true,
+        BoxColor = Color3.fromRGB(255, 0, 255),
+        LineColor = Color3.fromRGB(255, 0, 0),
+        NameColor = Color3.fromRGB(255, 255, 255),
+        DistanceColor = Color3.fromRGB(200, 200, 200),
+        BoxThickness = 2,
+        LineThickness = 1,
+        TextSize = 14,
+        MaxDistance = 2000,
+        TeamCheck = false,
+        ShowBox = true,
+        ShowLine = true,
+        ShowName = true,
+        ShowHealth = true,
+        ShowDistance = true,
+        ShowHealthBar = true,
+    },
+    
+    Aimbot = {
+        Enabled = false,
+        FOV_Radius = 400,
+        FOV_Color = Color3.fromRGB(255, 255, 255),
+        FOV_Thickness = 3,
+        FOV_Transparency = 0.7,
+        AimSmoothness = 0.35,
+        AimAtHead = true,
+        VisibilityCheck = true,
+        TeamCheck = false,
+    },
+    
+    MagicBullet = {
+        Enabled = false,
+        Damage = 50,
+        BulletSpeed = 1000,
+        AutoTarget = true,
+        TargetDistance = 400,
+    },
+    
+    Teleport = {
+        Enabled = false,
+        Height = 500,
+        LockPosition = true,
+        UseBodyVelocity = true,
+        UseBodyGyro = true,
+        PlatformStand = true,
+    },
+    
+    Invisible = {
+        Enabled = false,
+        HideBody = true,
+        HideAccessories = true,
+        HideClothing = true,
+        HideTools = true,
+        HideShadow = true,
+        HideNameTag = true,
+    },
+}
+
+-- ============ VARIABLES ============
+local ESP_List = {}
+local BodyVelocity = nil
+local BodyGyro = nil
+local SavedPosition = nil
+local IsTeleported = false
 
 -- ============ GUI ============
-local gui = Instance.new("ScreenGui")
-gui.Name = "DWR_GUI"
-gui.ResetOnSpawn = false
-gui.Parent = game:GetService("CoreGui")
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DWR_ULTIMATE_GUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game:GetService("CoreGui")
 
--- Tạo nút
-local function makeButton(name, y, default)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 60, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, y)
-    btn.BackgroundColor3 = default and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Text = name
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
-    btn.BorderSizePixel = 0
-    btn.BackgroundTransparency = 0.1
-    btn.Parent = gui
-    btn.ZIndex = 999
+-- Hàm tạo nút
+local function createButton(name, y, default)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 60, 0, 30)
+    button.Position = UDim2.new(0, 10, 0, y)
+    button.BackgroundColor3 = default and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = name
+    button.Font = Enum.Font.GothamBold
+    button.TextSize = 11
+    button.BorderSizePixel = 0
+    button.BackgroundTransparency = 0.1
+    button.Parent = ScreenGui
+    button.ZIndex = 999
     
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = btn
+    corner.Parent = button
     
-    return btn
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 255, 255)
+    stroke.Thickness = 1
+    stroke.Transparency = 0.5
+    stroke.Parent = button
+    
+    return button
 end
 
 -- Tạo 5 nút
-local espBtn = makeButton("ESP", 10, true)
-local aimBtn = makeButton("AIM", 45, false)
-local magicBtn = makeButton("MAGIC", 80, false)
-local teleBtn = makeButton("TELE", 115, false)
-local invisBtn = makeButton("INVIS", 150, false)
+local espButton = createButton("ESP", 10, true)
+local aimButton = createButton("AIM", 45, false)
+local magicButton = createButton("MAGIC", 80, false)
+local teleButton = createButton("TELE", 115, false)
+local invisButton = createButton("INVIS", 150, false)
 
--- Kéo thả nút
-local function makeDraggable(btn)
+-- ============ DRAG SYSTEM ============
+local function makeDraggable(button)
     local dragging = false
     local startPos = nil
     local dragStart = nil
     
-    btn.InputBegan:Connect(function(input)
+    button.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
-            startPos = btn.Position
+            startPos = button.Position
             dragStart = input.Position
         end
     end)
@@ -64,7 +139,7 @@ local function makeDraggable(btn)
     UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
     
@@ -75,137 +150,164 @@ local function makeDraggable(btn)
     end)
 end
 
-makeDraggable(espBtn)
-makeDraggable(aimBtn)
-makeDraggable(magicBtn)
-makeDraggable(invisBtn)
-makeDraggable(teleBtn)
+makeDraggable(espButton)
+makeDraggable(aimButton)
+makeDraggable(magicButton)
+makeDraggable(teleButton)
+makeDraggable(invisButton)
 
--- ============ TOGGLE ============
-espBtn.MouseButton1Click:Connect(function()
-    ESP_ON = not ESP_ON
-    espBtn.BackgroundColor3 = ESP_ON and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+-- ============ TOGGLE FUNCTIONS ============
+espButton.MouseButton1Click:Connect(function()
+    SETTINGS.ESP.Enabled = not SETTINGS.ESP.Enabled
+    espButton.BackgroundColor3 = SETTINGS.ESP.Enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
 end)
 
-aimBtn.MouseButton1Click:Connect(function()
-    AIM_ON = not AIM_ON
-    aimBtn.BackgroundColor3 = AIM_ON and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+aimButton.MouseButton1Click:Connect(function()
+    SETTINGS.Aimbot.Enabled = not SETTINGS.Aimbot.Enabled
+    aimButton.BackgroundColor3 = SETTINGS.Aimbot.Enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
 end)
 
-magicBtn.MouseButton1Click:Connect(function()
-    MAGIC_ON = not MAGIC_ON
-    magicBtn.BackgroundColor3 = MAGIC_ON and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+magicButton.MouseButton1Click:Connect(function()
+    SETTINGS.MagicBullet.Enabled = not SETTINGS.MagicBullet.Enabled
+    magicButton.BackgroundColor3 = SETTINGS.MagicBullet.Enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
 end)
 
-teleBtn.MouseButton1Click:Connect(function()
-    TELE_ON = not TELE_ON
-    teleBtn.BackgroundColor3 = TELE_ON and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+teleButton.MouseButton1Click:Connect(function()
+    SETTINGS.Teleport.Enabled = not SETTINGS.Teleport.Enabled
+    teleButton.BackgroundColor3 = SETTINGS.Teleport.Enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
     
-    if TELE_ON then
-        -- Khi bật: tele lên cao và đứng im
+    if SETTINGS.Teleport.Enabled then
         teleportUp()
     else
-        -- Khi tắt: rơi xuống đất
         teleportDown()
     end
 end)
 
-invisBtn.MouseButton1Click:Connect(function()
-    INVIS_ON = not INVIS_ON
-    invisBtn.BackgroundColor3 = INVIS_ON and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+invisButton.MouseButton1Click:Connect(function()
+    SETTINGS.Invisible.Enabled = not SETTINGS.Invisible.Enabled
+    invisButton.BackgroundColor3 = SETTINGS.Invisible.Enabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
     
-    -- Áp dụng tàng hình ngay lập tức
-    applyInvisible(INVIS_ON)
+    applyInvisible(SETTINGS.Invisible.Enabled)
 end)
 
--- ============ ESP ============
-local espList = {}
-
+-- ============ ESP SYSTEM ============
 local function createESP(player)
+    local esp = {}
+    
+    -- Box
     local box = Drawing.new("Square")
-    box.Thickness = 2
-    box.Color = Color3.fromRGB(255, 0, 255)
+    box.Thickness = SETTINGS.ESP.BoxThickness
+    box.Color = SETTINGS.ESP.BoxColor
     box.Filled = false
+    box.Transparency = 1
     box.Visible = false
+    esp.Box = box
     
+    -- Line
     local line = Drawing.new("Line")
-    line.Thickness = 1
-    line.Color = Color3.fromRGB(255, 0, 0)
+    line.Thickness = SETTINGS.ESP.LineThickness
+    line.Color = SETTINGS.ESP.LineColor
+    line.Transparency = 1
     line.Visible = false
+    esp.Line = line
     
+    -- Name
     local nameLabel = Drawing.new("Text")
-    nameLabel.Color = Color3.new(1,1,1)
-    nameLabel.Size = 14
+    nameLabel.Color = SETTINGS.ESP.NameColor
+    nameLabel.Size = SETTINGS.ESP.TextSize
     nameLabel.Center = true
     nameLabel.Outline = true
     nameLabel.Visible = false
+    esp.Name = nameLabel
     
+    -- Distance
     local distLabel = Drawing.new("Text")
-    distLabel.Color = Color3.fromRGB(200,200,200)
-    distLabel.Size = 12
+    distLabel.Color = SETTINGS.ESP.DistanceColor
+    distLabel.Size = SETTINGS.ESP.TextSize - 2
     distLabel.Center = true
     distLabel.Outline = true
     distLabel.Visible = false
+    esp.Dist = distLabel
     
+    -- Health Background
     local hpBg = Drawing.new("Square")
-    hpBg.Color = Color3.new(0,0,0)
+    hpBg.Color = Color3.new(0, 0, 0)
     hpBg.Filled = true
+    hpBg.Transparency = 1
     hpBg.Visible = false
+    esp.HPBg = hpBg
     
+    -- Health Bar
     local hpBar = Drawing.new("Square")
-    hpBar.Color = Color3.new(0,1,0)
+    hpBar.Color = Color3.new(0, 1, 0)
     hpBar.Filled = true
+    hpBar.Transparency = 1
     hpBar.Visible = false
+    esp.HPBar = hpBar
     
-    espList[player] = {
-        Box = box,
-        Line = line,
-        Name = nameLabel,
-        Dist = distLabel,
-        HPBg = hpBg,
-        HPBar = hpBar
-    }
+    ESP_List[player] = esp
+    return esp
 end
 
 Players.PlayerAdded:Connect(createESP)
 Players.PlayerRemoving:Connect(function(player)
-    if espList[player] then
-        for _, d in pairs(espList[player]) do
-            d:Remove()
+    if ESP_List[player] then
+        for _, drawing in pairs(ESP_List[player]) do
+            drawing:Remove()
         end
-        espList[player] = nil
+        ESP_List[player] = nil
     end
 end)
 
-for _, p in pairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer then
-        createESP(p)
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        createESP(player)
     end
 end
 
--- ============ FOV ============
-local fov = Drawing.new("Circle")
-fov.Color = Color3.new(1,1,1)
-fov.Thickness = 3
-fov.Radius = 400
-fov.Transparency = 0.7
-fov.Visible = false
+-- ============ FOV CIRCLE ============
+local fovCircle = Drawing.new("Circle")
+fovCircle.Color = SETTINGS.Aimbot.FOV_Color
+fovCircle.Thickness = SETTINGS.Aimbot.FOV_Thickness
+fovCircle.Radius = SETTINGS.Aimbot.FOV_Radius
+fovCircle.Transparency = SETTINGS.Aimbot.FOV_Transparency
+fovCircle.Visible = false
 
--- ============ GET PLAYER TRONG FOV ============
-local function getPlayerInFOV()
+-- ============ TARGET SYSTEM ============
+local function getClosestPlayerInFOV()
     local closest = nil
-    local closestDist = 400
-    local screenCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local closestDist = SETTINGS.Aimbot.FOV_Radius
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-            local head = p.Character.Head
-            local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-            if onScreen then
-                local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closest = p
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") then
+            local humanoid = player.Character.Humanoid
+            if humanoid.Health > 0 then
+                -- Team check
+                if SETTINGS.Aimbot.TeamCheck and player.Team == LocalPlayer.Team then
+                    continue
+                end
+                
+                local head = player.Character.Head
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    if distFromCenter < closestDist then
+                        -- Visibility check
+                        if SETTINGS.Aimbot.VisibilityCheck then
+                            local ray = Ray.new(Camera.CFrame.Position, (head.Position - Camera.CFrame.Position).Unit * 1000)
+                            local ignoreList = {LocalPlayer.Character}
+                            local hit = workspace:FindPartOnRayWithIgnoreList(ray, ignoreList)
+                            
+                            if hit and hit:IsDescendantOf(player.Character) then
+                                closestDist = distFromCenter
+                                closest = player
+                            end
+                        else
+                            closestDist = distFromCenter
+                            closest = player
+                        end
+                    end
                 end
             end
         end
@@ -214,129 +316,249 @@ local function getPlayerInFOV()
     return closest
 end
 
--- ============ MAGIC BULLET (CẢI THIỆN) ============
-local function magicBullet()
-    if not MAGIC_ON then return end
+-- ============ MAGIC BULLET SYSTEM ============
+local function magicBulletSystem()
+    if not SETTINGS.MagicBullet.Enabled then return end
     if not LocalPlayer.Character then return end
     
-    local target = getPlayerInFOV()
+    local target = getClosestPlayerInFOV()
     if not target or not target.Character or not target.Character:FindFirstChild("Head") then return end
     
     local targetHead = target.Character.Head
+    local targetHumanoid = target.Character:FindFirstChildOfClass("Humanoid")
     
-    -- Tìm tất cả đạn trong workspace
+    -- Cách 1: Dịch chuyển đạn hiện có
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():find("bullet") or obj.Name:lower():find("projectile") or obj.Name:lower():find("ammo") then
-            -- Bắn đạn về phía mục tiêu
-            local direction = (targetHead.Position - obj.Position).Unit
-            obj.Velocity = direction * 500 -- Tốc độ đạn
-            obj.CFrame = CFrame.new(obj.Position, targetHead.Position)
+        if obj:IsA("BasePart") then
+            local objName = obj.Name:lower()
+            if objName:find("bullet") or objName:find("projectile") or objName:find("bolt") or objName:find("shell") or objName:find("rocket") then
+                obj.CFrame = targetHead.CFrame
+                obj.Velocity = Vector3.new(0, 0, 0)
+                
+                -- Gây sát thương
+                if targetHumanoid and targetHumanoid.Health > 0 then
+                    targetHumanoid:TakeDamage(SETTINGS.MagicBullet.Damage)
+                end
+            end
         end
     end
     
-    -- Tìm tool đang cầm
+    -- Cách 2: Tạo bullet mới từ súng
     local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
     if tool then
-        -- Tìm các phần có thể bắn
-        for _, descendant in pairs(tool:GetDescendants()) do
-            if descendant:IsA("BasePart") and (descendant.Name:lower():find("bullet") or descendant.Name:lower():find("projectile")) then
-                descendant.CFrame = targetHead.CFrame
-                descendant.Velocity = (targetHead.Position - descendant.Position).Unit * 500
-            end
+        local muzzle = tool:FindFirstChild("Muzzle") or tool:FindFirstChild("Barrel") or tool:FindFirstChild("Handle")
+        if muzzle and muzzle:IsA("BasePart") then
+            local fakeBullet = Instance.new("Part")
+            fakeBullet.Name = "MagicBullet"
+            fakeBullet.Size = Vector3.new(0.5, 0.5, 2)
+            fakeBullet.Shape = Enum.PartType.Cylinder
+            fakeBullet.Anchored = false
+            fakeBullet.CanCollide = false
+            fakeBullet.Material = Enum.Material.Neon
+            fakeBullet.Color = Color3.new(1, 1, 0)
+            fakeBullet.Transparency = 0.5
+            fakeBullet.CFrame = CFrame.new(muzzle.Position, targetHead.Position)
+            fakeBullet.Parent = workspace
+            
+            local direction = (targetHead.Position - muzzle.Position).Unit
+            fakeBullet.Velocity = direction * SETTINGS.MagicBullet.BulletSpeed
+            
+            -- Tự xóa sau 2 giây
+            Debris:AddItem(fakeBullet, 2)
+            
+            -- Gây sát thương khi trúng
+            fakeBullet.Touched:Connect(function(hit)
+                if hit:IsDescendantOf(target.Character) then
+                    if targetHumanoid and targetHumanoid.Health > 0 then
+                        targetHumanoid:TakeDamage(SETTINGS.MagicBullet.Damage)
+                    end
+                    fakeBullet:Destroy()
+                end
+            end)
         end
     end
 end
 
--- ============ TELEPORT LÊN CAO ============
-local teleportHeight = 100 -- Độ cao teleport
-local originalPosition = nil -- Lưu vị trí ban đầu
-
+-- ============ TELEPORT SYSTEM ============
 local function teleportUp()
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
     
     local root = LocalPlayer.Character.HumanoidRootPart
+    local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     
     -- Lưu vị trí ban đầu
-    if not originalPosition then
-        originalPosition = root.Position
+    if not SavedPosition then
+        SavedPosition = root.Position
+    end
+    
+    -- Xóa body cũ
+    for _, child in pairs(root:GetChildren()) do
+        if child:IsA("BodyVelocity") or child:IsA("BodyGyro") or child:IsA("BodyPosition") then
+            child:Destroy()
+        end
     end
     
     -- Tele lên cao
-    root.CFrame = CFrame.new(root.Position.X, teleportHeight, root.Position.Z)
-    root.Velocity = Vector3.new(0, 0, 0) -- Đứng im
-    root.RotVelocity = Vector3.new(0, 0, 0) -- Không xoay
+    root.CFrame = CFrame.new(root.Position.X, SETTINGS.Teleport.Height, root.Position.Z)
     
     -- Khóa vị trí
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.MaxForce = Vector3.new(999999, 999999, 999999)
-    bodyVelocity.Parent = root
+    if SETTINGS.Teleport.UseBodyVelocity then
+        BodyVelocity = Instance.new("BodyVelocity")
+        BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        BodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        BodyVelocity.Parent = root
+    end
     
-    local bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.CFrame = root.CFrame
-    bodyGyro.MaxTorque = Vector3.new(999999, 999999, 999999)
-    bodyGyro.D = 100
-    bodyGyro.P = 100000
-    bodyGyro.Parent = root
+    -- Khóa xoay
+    if SETTINGS.Teleport.UseBodyGyro then
+        BodyGyro = Instance.new("BodyGyro")
+        BodyGyro.CFrame = root.CFrame
+        BodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        BodyGyro.D = 1000
+        BodyGyro.P = 100000
+        BodyGyro.Parent = root
+    end
+    
+    -- PlatformStand để không rơi
+    if SETTINGS.Teleport.PlatformStand and humanoid then
+        humanoid.PlatformStand = true
+    end
+    
+    IsTeleported = true
 end
 
 local function teleportDown()
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
     
     local root = LocalPlayer.Character.HumanoidRootPart
+    local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     
-    -- Xóa BodyVelocity và BodyGyro
+    -- Xóa body khóa
     for _, child in pairs(root:GetChildren()) do
-        if child:IsA("BodyVelocity") or child:IsA("BodyGyro") then
+        if child:IsA("BodyVelocity") or child:IsA("BodyGyro") or child:IsA("BodyPosition") then
             child:Destroy()
         end
     end
     
+    -- Cho phép rơi
+    if humanoid then
+        humanoid.PlatformStand = false
+    end
+    
     -- Rơi xuống đất
-    root.Velocity = Vector3.new(0, -100, 0) -- Rơi nhanh xuống
+    root.Velocity = Vector3.new(0, -500, 0)
+    
+    IsTeleported = false
 end
 
--- ============ TÀNG HÌNH ============
+-- ============ INVISIBLE SYSTEM ============
 local function applyInvisible(enabled)
     if not LocalPlayer.Character then return end
     
-    for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            if enabled then
-                part.Transparency = 1 -- Tàng hình hoàn toàn
-            else
-                part.Transparency = 0 -- Hiện lại
+    local character = LocalPlayer.Character
+    
+    -- Ẩn body parts
+    if SETTINGS.Invisible.HideBody then
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                part.Transparency = enabled and 1 or 0
             end
         end
-        
-        if part:IsA("Accessory") and part:FindFirstChild("Handle") then
-            if enabled then
-                part.Handle.Transparency = 1
-            else
-                part.Handle.Transparency = 0
+    end
+    
+    -- Ẩn accessories
+    if SETTINGS.Invisible.HideAccessories then
+        for _, accessory in pairs(character:GetChildren()) do
+            if accessory:IsA("Accessory") and accessory:FindFirstChild("Handle") then
+                accessory.Handle.Transparency = enabled and 1 or 0
             end
         end
-        
-        if part:IsA("Decal") then
-            if enabled then
-                part.Transparency = 1
-            else
-                part.Transparency = 0
+    end
+    
+    -- Ẩn quần áo
+    if SETTINGS.Invisible.HideClothing then
+        for _, clothing in pairs(character:GetChildren()) do
+            if clothing:IsA("Shirt") or clothing:IsA("Pants") or clothing:IsA("Clothing") then
+                clothing.Transparency = enabled and 1 or 0
             end
+        end
+    end
+    
+    -- Ẩn tool
+    if SETTINGS.Invisible.HideTools then
+        for _, tool in pairs(character:GetChildren()) do
+            if tool:IsA("Tool") then
+                local handle = tool:FindFirstChild("Handle")
+                if handle and handle:IsA("BasePart") then
+                    handle.Transparency = enabled and 1 or 0
+                end
+            end
+        end
+    end
+    
+    -- Ẩn descendants
+    for _, descendant in pairs(character:GetDescendants()) do
+        if descendant:IsA("BasePart") then
+            descendant.Transparency = enabled and 1 or 0
+        elseif descendant:IsA("Decal") or descendant:IsA("Texture") then
+            descendant.Transparency = enabled and 1 or 0
+        elseif descendant:IsA("SpecialMesh") then
+            descendant.Transparency = enabled and 1 or 0
+        end
+    end
+    
+    -- Ẩn bóng
+    if SETTINGS.Invisible.HideShadow then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.DisplayDistanceType = enabled and Enum.HumanoidDisplayDistanceType.None or Enum.HumanoidDisplayDistanceType.Viewer
         end
     end
 end
 
--- ============ MAIN LOOP ============
-RunService.RenderStepped:Connect(function()
-    -- ESP Update
-    for player, esp in pairs(espList) do
-        if ESP_ON and player.Parent and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+-- ============ ESP UPDATE ============
+local function updateESP()
+    if not SETTINGS.ESP.Enabled then
+        for _, esp in pairs(ESP_List) do
+            for _, drawing in pairs(esp) do
+                drawing.Visible = false
+            end
+        end
+        return
+    end
+    
+    for player, esp in pairs(ESP_List) do
+        if player.Parent and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
             local root = player.Character.HumanoidRootPart
             local head = player.Character:FindFirstChild("Head")
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            local humanoid = player.Character.Humanoid
+            
+            if humanoid.Health <= 0 then
+                for _, drawing in pairs(esp) do
+                    drawing.Visible = false
+                end
+                continue
+            end
+            
+            -- Team check
+            if SETTINGS.ESP.TeamCheck and player.Team == LocalPlayer.Team then
+                for _, drawing in pairs(esp) do
+                    drawing.Visible = false
+                end
+                continue
+            end
             
             local pos = root.Position
+            local distance = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and (LocalPlayer.Character.HumanoidRootPart.Position - pos).Magnitude) or 0
+            
+            -- Max distance check
+            if distance > SETTINGS.ESP.MaxDistance then
+                for _, drawing in pairs(esp) do
+                    drawing.Visible = false
+                end
+                continue
+            end
+            
             local headPos = head and head.Position or pos + Vector3.new(0, 2, 0)
             local legPos = pos - Vector3.new(0, 3, 0)
             
@@ -347,98 +569,11 @@ RunService.RenderStepped:Connect(function()
                 local height = math.abs(legScreen.Y - headScreen.Y)
                 local width = height * 0.6
                 
-                esp.Box.Visible = true
-                esp.Box.Position = Vector2.new(headScreen.X - width/2, headScreen.Y)
-                esp.Box.Size = Vector2.new(width, height)
-                
-                esp.Line.Visible = true
-                esp.Line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                esp.Line.To = Vector2.new(headScreen.X, legScreen.Y)
-                
-                esp.Name.Visible = true
-                esp.Name.Position = Vector2.new(headScreen.X, headScreen.Y - 20)
-                esp.Name.Text = player.Name
-                
-                local dist = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and (LocalPlayer.Character.HumanoidRootPart.Position - pos).Magnitude) or 0
-                esp.Dist.Visible = true
-                esp.Dist.Position = Vector2.new(headScreen.X, headScreen.Y - 35)
-                esp.Dist.Text = string.format("%.0f m", dist)
-                
-                if humanoid and humanoid.MaxHealth > 0 then
-                    local hpPercent = humanoid.Health / humanoid.MaxHealth
-                    esp.HPBg.Visible = true
-                    esp.HPBg.Position = Vector2.new(headScreen.X - width/2 - 6, headScreen.Y)
-                    esp.HPBg.Size = Vector2.new(4, height)
-                    
-                    esp.HPBar.Visible = true
-                    esp.HPBar.Position = Vector2.new(headScreen.X - width/2 - 6, headScreen.Y + height * (1 - hpPercent))
-                    esp.HPBar.Size = Vector2.new(4, height * hpPercent)
-                    
-                    if hpPercent > 0.5 then
-                        esp.HPBar.Color = Color3.new(0,1,0)
-                    elseif hpPercent > 0.25 then
-                        esp.HPBar.Color = Color3.new(1,1,0)
-                    else
-                        esp.HPBar.Color = Color3.new(1,0,0)
-                    end
-                end
-            else
-                for _, d in pairs(esp) do
-                    d.Visible = false
-                end
-            end
-        else
-            for _, d in pairs(esp) do
-                d.Visible = false
-            end
-        end
-    end
-    
-    -- FOV
-    fov.Visible = AIM_ON
-    fov.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    
-    -- Aimbot
-    if AIM_ON then
-        local target = getPlayerInFOV()
-        
-        if target and target.Character and target.Character:FindFirstChild("Head") then
-            local head = target.Character.Head
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, head.Position), 0.35)
-        end
-    end
-    
-    -- Magic Bullet
-    if MAGIC_ON then
-        magicBullet()
-    end
-    
-    -- Teleport giữ trên cao
-    if TELE_ON then
-        -- Đảm bảo đứng im trên cao
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local root = LocalPlayer.Character.HumanoidRootPart
-            if root.Position.Y < teleportHeight - 5 then
-                teleportUp()
-            end
-        end
-    end
-    
-    -- Tàng hình liên tục
-    if INVIS_ON and LocalPlayer.Character then
-        applyInvisible(true)
-    end
-end)
-
--- Khi character mới spawn
-LocalPlayer.CharacterAdded:Connect(function()
-    wait(0.5)
-    if INVIS_ON then
-        applyInvisible(true)
-    end
-    if TELE_ON then
-        teleportUp()
-    end
-end)
-
-print("✅ Script loaded! ESP | AIM | MAGIC | TELE | INVIS - Kéo thả nút được!")
+                -- Box
+                if SETTINGS.ESP.ShowBox then
+                    esp.Box.Visible = true
+                    esp.Box.Position = Vector2.new(headScreen.X - width / 2, headScreen.Y)
+                    esp.Box.Size = Vector2.new(width, height)
+                else
+                    esp.Box.Visible = false
+   
