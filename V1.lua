@@ -1,5 +1,5 @@
 -- [[ DEVILS WILL RISE - ULTIMATE HUB EDITION ]]
--- Phím tắt ẩn/hiện Menu: RightControl | Hoặc ấn nút MENU trên màn hình
+-- Phím tắt ẩn/hiện Menu: RightControl | Nút [MENU] có thể kéo thả tự do
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -38,7 +38,43 @@ local SETTINGS = {
 }
 
 local ESP_Storage = {}
-local Connections = {}
+
+-- ================== HELPER: HÀM TẠO TÍNH NĂNG KÉO THẢ (DRAGGABLE) ==================
+local function MakeDraggable(guiObject)
+    local dragging = false
+    local dragInput, dragStart, startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    guiObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = guiObject.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    guiObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+end
 
 -- ================== ESP CORE ENGINE ==================
 local function CreateESPComponents(player)
@@ -54,32 +90,27 @@ local function CreateESPComponents(player)
         SkeletonLines = {}
     }
     
-    -- Thiết lập mặc định cho Box
     drawings.Box.Thickness = 1.5
     drawings.Box.Color = Color3.fromRGB(255, 0, 100)
     drawings.Box.Filled = false
     drawings.Box.Visible = false
     
-    -- Thiết lập mặc định cho Line
     drawings.Line.Thickness = 1
     drawings.Line.Color = Color3.fromRGB(0, 255, 255)
     drawings.Line.Visible = false
     
-    -- Thiết lập Text Tên
     drawings.Name.Size = 13
     drawings.Name.Center = true
     drawings.Name.Outline = true
     drawings.Name.Color = Color3.fromRGB(255, 255, 255)
     drawings.Name.Visible = false
     
-    -- Thiết lập Text Khoảng cách
     drawings.Distance.Size = 11
     drawings.Distance.Center = true
     drawings.Distance.Outline = true
     drawings.Distance.Color = Color3.fromRGB(200, 200, 200)
     drawings.Distance.Visible = false
     
-    -- Thanh Máu
     drawings.HealthBg.Thickness = 1
     drawings.HealthBg.Color = Color3.fromRGB(0, 0, 0)
     drawings.HealthBg.Filled = true
@@ -90,7 +121,6 @@ local function CreateESPComponents(player)
     drawings.HealthBar.Filled = true
     drawings.HealthBar.Visible = false
     
-    -- Tạo Khung Xương (Skeleton Lines - 6 đoạn kết nối cơ bản)
     for i = 1, 6 do
         local l = Drawing.new("Line")
         l.Thickness = 1
@@ -115,7 +145,6 @@ local function RemoveESPComponents(player)
     end
 end
 
--- Vòng lặp cập nhật ESP
 RunService.RenderStepped:Connect(function()
     for player, esp in pairs(ESP_Storage) do
         local character = player.Character
@@ -135,35 +164,30 @@ RunService.RenderStepped:Connect(function()
                     local distance = (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) 
                         and math.floor((LocalPlayer.Character.HumanoidRootPart.Position - rootPart.Position).Magnitude) or 0
                     
-                    -- Render ESP Box
                     if SETTINGS.ESP_Box then
                         esp.Box.Size = Vector2.new(width, height)
                         esp.Box.Position = Vector2.new(rootPos.X - width/2, headPos.Y)
                         esp.Box.Visible = true
                     else esp.Box.Visible = false end
                     
-                    -- Render ESP Line
                     if SETTINGS.ESP_Line then
                         esp.Line.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
                         esp.Line.To = Vector2.new(rootPos.X, legPos.Y)
                         esp.Line.Visible = true
                     else esp.Line.Visible = false end
                     
-                    -- Render ESP Tên
                     if SETTINGS.ESP_Name then
                         esp.Name.Text = player.Name
                         esp.Name.Position = Vector2.new(rootPos.X, headPos.Y - 16)
                         esp.Name.Visible = true
                     else esp.Name.Visible = false end
                     
-                    -- Render ESP Khoảng Cách
                     if SETTINGS.ESP_Distance then
                         esp.Distance.Text = tostring(distance) .. "m"
                         esp.Distance.Position = Vector2.new(rootPos.X, legPos.Y + 2)
                         esp.Distance.Visible = true
                     else esp.Distance.Visible = false end
                     
-                    -- Render ESP Máu
                     if SETTINGS.ESP_Health then
                         local healthPercent = humanoid.Health / humanoid.MaxHealth
                         esp.HealthBg.Size = Vector2.new(3, height)
@@ -179,7 +203,6 @@ RunService.RenderStepped:Connect(function()
                         esp.HealthBar.Visible = false 
                     end
                     
-                    -- Render ESP Skeleton
                     if SETTINGS.ESP_Skeleton then
                         local joints = {
                             {"Head", "UpperTorso"},
@@ -211,7 +234,6 @@ RunService.RenderStepped:Connect(function()
                     end
                     
                 else
-                    -- Dọn dẹp hiển thị khi nằm ngoài màn hình
                     esp.Box.Visible = false
                     esp.Line.Visible = false
                     esp.Name.Visible = false
@@ -222,7 +244,6 @@ RunService.RenderStepped:Connect(function()
                 end
             end
         else
-            -- Tắt toàn bộ khi ESP Master tắt
             esp.Box.Visible = false
             esp.Line.Visible = false
             esp.Name.Visible = false
@@ -234,18 +255,42 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- Quản lý kết nối người chơi vào/ra
 for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then CreateESPComponents(p) end end
 Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESPComponents(p) end end)
 Players.PlayerRemoving:Connect(function(p) RemoveESPComponents(p) end)
 
--- ================== AIMBOT ENGINE & FOV CIRCLE ==================
+-- ================== AIMBOT ENGINE (CÓ KIỂM TRA TƯỜNG / VISIBILITY CHECK) ==================
 local FOV_Circle = Drawing.new("Circle")
 FOV_Circle.Thickness = 1.5
 FOV_Circle.Color = Color3.fromRGB(0, 255, 150)
 FOV_Circle.Transparency = 0.8
 FOV_Circle.Filled = false
 FOV_Circle.Visible = true
+
+-- Hàm Raycast kiểm tra đường nhìn thấy kẻ địch hay bị che khuất
+local function IsVisible(targetPart)
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin)
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = RaycastFilterType.Exclude
+    
+    local ignoreList = {Camera}
+    if LocalPlayer.Character then
+        table.insert(ignoreList, LocalPlayer.Character)
+    end
+    raycastParams.FilterDescendantsInstances = ignoreList
+
+    local result = Workspace:Raycast(origin, direction, raycastParams)
+    
+    if result then
+        if result.Instance:IsDescendantOf(targetPart.Parent) then
+            return true
+        end
+        return false
+    end
+    return true
+end
 
 local function GetClosestTarget()
     local closestPlayer = nil
@@ -263,8 +308,11 @@ local function GetClosestTarget()
                 if onScreen then
                     local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                     if dist < shortestDist then
-                        shortestDist = dist
-                        closestPlayer = player
+                        -- CHỈ AIM KHI NHÌN THẤY MỤC TIÊU (VISIBILITY CHECK)
+                        if IsVisible(targetPart) then
+                            shortestDist = dist
+                            closestPlayer = player
+                        end
                     end
                 end
             end
@@ -273,7 +321,6 @@ local function GetClosestTarget()
     return closestPlayer
 end
 
--- Vòng lặp Aimbot & Cập nhật FOV
 RunService.RenderStepped:Connect(function()
     FOV_Circle.Radius = SETTINGS.FOV_Radius
     FOV_Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -284,12 +331,10 @@ RunService.RenderStepped:Connect(function()
         local targetPart = target.Character:FindFirstChild(targetPartName)
         
         if targetPart then
-            -- Aim lock thông thường
             if not SETTINGS.Aim_Silent then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
             end
             
-            -- Aim Fire (Tự động nhấn bắn khi phát hiện mục tiêu)
             if SETTINGS.Aim_Fire then
                 mouse1press()
                 task.wait(0.05)
@@ -299,15 +344,13 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ================== MEMORY ENGINE (HACK CHỨC NĂNG) ==================
--- WalkSpeed
+-- ================== MEMORY ENGINE ==================
 RunService.RenderStepped:Connect(function()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
         LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = SETTINGS.WalkSpeed
     end
 end)
 
--- Noclip (Bỏ va chạm vật lý)
 RunService.Stepped:Connect(function()
     if SETTINGS.Noclip and LocalPlayer.Character then
         for _, part in pairs(LocalPlayer.Character:GetChildren()) do
@@ -318,14 +361,12 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- SpinBot (Xoay nhân vật siêu tốc)
 RunService.RenderStepped:Connect(function()
     if SETTINGS.SpinBot and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(60), 0)
     end
 end)
 
--- Teleport Kill (Dịch chuyển sát lưng kẻ địch gần nhất)
 task.spawn(function()
     while task.wait(0.2) do
         if SETTINGS.TeleportKill then
@@ -345,7 +386,7 @@ ScreenGui.Name = "DevilsWillRise_Hub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game:GetService("CoreGui")
 
--- Nút Thu Nhỏ / Mở Menu
+-- Nút Thu Nhỏ / Mở Menu (KÈM KHẢ NĂNG KÉO THẢ TỰ DO)
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(0, 90, 0, 32)
 toggleBtn.Position = UDim2.new(0, 15, 0, 15)
@@ -354,25 +395,29 @@ toggleBtn.TextColor3 = Color3.fromRGB(0, 255, 180)
 toggleBtn.Text = "MENU [ON]"
 toggleBtn.Font = Enum.Font.GothamBold
 toggleBtn.TextSize = 12
+toggleBtn.Active = true
 toggleBtn.Parent = ScreenGui
 
 local tbCorner = Instance.new("UICorner") tbCorner.CornerRadius = UDim.new(0, 6) tbCorner.Parent = toggleBtn
 local tbStroke = Instance.new("UIStroke") tbStroke.Color = Color3.fromRGB(0, 255, 180) tbStroke.Thickness = 1.5 tbStroke.Parent = toggleBtn
 
--- Khung Main Menu
+-- Cho phép kéo thả Icon Menu
+MakeDraggable(toggleBtn)
+
+-- Khung Main Menu (Cũng hỗ trợ kéo thả)
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 520, 0, 350)
 MainFrame.Position = UDim2.new(0.5, -260, 0.5, -175)
 MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
+
+MakeDraggable(MainFrame)
 
 local mfCorner = Instance.new("UICorner") mfCorner.CornerRadius = UDim.new(0, 8) mfCorner.Parent = MainFrame
 local mfStroke = Instance.new("UIStroke") mfStroke.Color = Color3.fromRGB(120, 0, 255) mfStroke.Thickness = 2 mfStroke.Parent = MainFrame
 
--- Tiêu đề Menu
 local headerLabel = Instance.new("TextLabel")
 headerLabel.Size = UDim2.new(1, 0, 0, 40)
 headerLabel.BackgroundTransparency = 1
@@ -382,7 +427,6 @@ headerLabel.Font = Enum.Font.GothamBlack
 headerLabel.TextSize = 14
 headerLabel.Parent = MainFrame
 
--- Thanh Tab Bên Trái
 local TabContainer = Instance.new("Frame")
 TabContainer.Size = UDim2.new(0, 125, 1, -40)
 TabContainer.Position = UDim2.new(0, 0, 0, 40)
@@ -395,7 +439,6 @@ tabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 tabListLayout.Padding = UDim.new(0, 6)
 tabListLayout.Parent = TabContainer
 
--- Khung Hiển Thị Nội Dung Các Tab
 local ContentContainer = Instance.new("Frame")
 ContentContainer.Size = UDim2.new(1, -135, 1, -50)
 ContentContainer.Position = UDim2.new(0, 130, 0, 45)
@@ -447,19 +490,15 @@ local function CreateTab(tabName)
     return scroll
 end
 
--- Khởi Tạo 4 Tab Chính
 local pageESP = CreateTab("ESP")
 local pageAim = CreateTab("Aim")
 local pageMemory = CreateTab("Memory")
 local pageAdmin = CreateTab("Admin")
 
--- Mặc định hiển thị Tab ESP
 Tabs["ESP"].Visible = true
 TabBtns[1].BackgroundColor3 = Color3.fromRGB(120, 0, 255)
 
 -- ================== CÁC NÚT ĐIỀU KHIỂN (UI COMPONENTS) ==================
-
--- 1. Hàm Tạo Nút Bật/Tắt (Toggle)
 local function AddToggle(parent, title, default, callback)
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, -10, 0, 32)
@@ -498,7 +537,6 @@ local function AddToggle(parent, title, default, callback)
     end)
 end
 
--- 2. Hàm Tạo Thanh Kéo Điều Chỉnh (Slider)
 local function AddSlider(parent, title, minVal, maxVal, defaultVal, callback)
     local row = Instance.new("Frame")
     row.Size = UDim2.new(1, -10, 0, 42)
@@ -559,8 +597,7 @@ local function AddSlider(parent, title, minVal, maxVal, defaultVal, callback)
     end)
 end
 
--- ================== BỔ SUNG CÁC CÔNG TẮC & THANH KÉO VÀO CÁC TAB ==================
-
+-- ================== BỔ SUNG NÚT VÀO MỖI TAB ==================
 -- [TAB ESP]
 AddToggle(pageESP, "Cho phép ESP (Tổng)", SETTINGS.ESP_Master, function(v) SETTINGS.ESP_Master = v end)
 AddToggle(pageESP, "ESP Line (Đường kẻ)", SETTINGS.ESP_Line, function(v) SETTINGS.ESP_Line = v end)
@@ -609,13 +646,12 @@ adminNameLabel.Font = Enum.Font.GothamBlack
 adminNameLabel.TextSize = 26
 adminNameLabel.Parent = pageAdmin
 
--- Hiệu ứng chữ nhấp nháy Cầu Vồng (Rainbow Smooth Interpolation)
 RunService.RenderStepped:Connect(function()
     local hue = (tick() % 2) / 2
     adminNameLabel.TextColor3 = Color3.fromHSV(hue, 1, 1)
 end)
 
--- ================== SỰ KIỆN TẮT / MỞ BẰNG NÚT HOẶC PHÍM TẮT ==================
+-- ================== BẬT/TẮT MENU ==================
 toggleBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
     toggleBtn.Text = MainFrame.Visible and "MENU [ON]" or "MENU [OFF]"
@@ -628,4 +664,4 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-print("💀 DEVILS WILL RISE - FULL SCRIPT LOADED SUCCESSFULLY!")
+print("💀 DEVILS WILL RISE - UPDATED WITH VISIBILITY CHECK & DRAGGABLE ICON!")
